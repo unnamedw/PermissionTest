@@ -1,12 +1,13 @@
 package com.example.permissiontest
 
-import androidx.test.platform.app.InstrumentationRegistry
+import android.util.Base64
 import androidx.test.ext.junit.runners.AndroidJUnit4
 
 import org.junit.Test
 import org.junit.runner.RunWith
-
 import org.junit.Assert.*
+import java.net.URLEncoder
+import java.nio.charset.Charset
 
 /**
  * Instrumented test, which will execute on an Android device.
@@ -16,9 +17,22 @@ import org.junit.Assert.*
 @RunWith(AndroidJUnit4::class)
 class ExampleInstrumentedTest {
     @Test
-    fun useAppContext() {
-        // Context of the app under test.
-        val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("com.example.permissiontest", appContext.packageName)
+    fun json_to_base64() {
+        Base64.encodeToString(sampleJson.toByteArray(), Base64.DEFAULT).also {
+            println(it)
+        }
+    }
+
+    @Test
+    fun json_to_base64_with_url_encode() {
+
+    }
+
+    private fun String.toBase64EncodedString(): String {
+        return URLEncoder.encode(this)
+    }
+
+    private fun String.toUrlEncodedString(): String {
+        return Base64.encodeToString(this.toByteArray(), Base64.DEFAULT)
     }
 }

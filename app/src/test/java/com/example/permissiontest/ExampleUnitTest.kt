@@ -3,6 +3,7 @@ package com.example.permissiontest
 import org.junit.Test
 
 import org.junit.Assert.*
+import java.util.Base64
 
 /**
  * Example local unit test, which will execute on the development machine (host).
@@ -11,7 +12,9 @@ import org.junit.Assert.*
  */
 class ExampleUnitTest {
     @Test
-    fun addition_isCorrect() {
-        assertEquals(4, 2 + 2)
+    fun json_to_base64() {
+        val encoded = android.util.Base64.encodeToString(sampleJson.toByteArray(), android.util.Base64.DEFAULT)
+        println(encoded)
     }
 }
+
