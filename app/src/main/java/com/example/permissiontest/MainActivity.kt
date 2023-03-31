@@ -41,7 +41,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleUri(uri: Uri?) = lifecycleScope.launch {
-        val file = FileManager.mkCacheFileFromUri(applicationContext, uri, ".tmp")
+        val file = FileManager.mkCacheFileFromUri(applicationContext, uri)
         val originFileSize = FileManager.getFileSize(file)
         val imageBitmap = BitmapFactory.decodeFile(file?.absolutePath, BitmapFactory.Options().apply {})
 
@@ -55,7 +55,7 @@ class MainActivity : AppCompatActivity() {
         // convert to png
         val newFile = withContext(Dispatchers.IO) {
             File.createTempFile(
-                "copy_".plus(file?.name.toString().removeSuffix(".tmp")),
+                "copy_".plus(file?.name.toString().removeSuffix(".${file?.extension}")),
                 ".png"
             )
         }.also {

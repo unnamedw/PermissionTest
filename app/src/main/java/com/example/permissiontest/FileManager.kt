@@ -13,10 +13,11 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.InputStream
+import java.net.URI
 
 object FileManager {
 
-    fun mkCacheFileFromUri(context: Context, uri: Uri?, suffix: String): File? {
+    fun mkCacheFileFromUri(context: Context, uri: Uri?): File? {
         if (uri == null) {
             return null
         }
@@ -25,8 +26,11 @@ object FileManager {
         var fileOutputStream: FileOutputStream? = null
 
         try {
+
+            val extension = getFileName(context, uri).substringAfterLast(".", "")
+
             inputStream = context.contentResolver.openInputStream(uri)
-            val tmpFile = File.createTempFile(inputStream.hashCode().toString(), suffix)
+            val tmpFile = File.createTempFile(inputStream.hashCode().toString(), ".$extension")
             tmpFile.deleteOnExit()
 
             fileOutputStream = FileOutputStream(tmpFile)
