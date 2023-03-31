@@ -1,23 +1,19 @@
 package com.example.permissiontest
 
 import android.content.Intent
-import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.graphics.BitmapCompat
 import androidx.lifecycle.lifecycleScope
+import com.bumptech.glide.Glide
 import com.example.permissiontest.databinding.ActivityMainBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
-import java.io.FileOutputStream
+import java.io.File
 
 class MainActivity : AppCompatActivity() {
 
@@ -29,42 +25,50 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        clearCacheDir()
+
         binding.btnPicker.setOnClickListener {
             pickImage()
         }
     }
 
-    private fun handleUri(uri: Uri?) = lifecycleScope.launch {
-        val file = FileManager.getFileFromUri(applicationContext, uri, ".png")
-        val originFileSize = FileManager.getFileSize(file)
-        binding.tvMessage.text = file?.name
-
-        val imageBitmap = BitmapFactory.decodeFile(file?.absolutePath, BitmapFactory.Options().apply {})
-//        val imageBitmapPng = compressBitmap(imageBitmap, Bitmap.CompressFormat.PNG, 100)
-
-//        val newOutputStream = withContext(Dispatchers.IO) { FileOutputStream(file) }
-//        imageBitmap.compress(Bitmap.CompressFormat.PNG, 100, newOutputStream)
-
-        file?.also {
-            FileManager.saveBitmapToPNGFile(imageBitmap, it)
+    private fun clearCacheDir() {
+        if (cacheDir.exists()) {
+            cacheDir.listFiles()?.forEach { cacheFile ->
+                cacheFile.delete()
+            }
         }
+    }
 
-        binding.imageView.setImageBitmap(imageBitmap)
-        binding.tvMessage.text = binding.tvMessage.text.toString()
-            .plus("\nimage type >> ${FileManager.getImageType(file)}")
+    private fun handleUri(uri: Uri?) = lifecycleScope.launch {
+        val file = FileManager.mkCacheFileFromUri(applicationContext, uri, ".tmp")
+        val originFileSize = FileManager.getFileSize(file)
+        val imageBitmap = BitmapFactory.decodeFile(file?.absolutePath, BitmapFactory.Options().apply {})
+
+        // before
+        Glide.with(this@MainActivity).load(file).into(binding.ivBefore)
+        binding.tvBefore.text = file?.name
+            .plus("\nimage type >> ${FileManager.getMimeType(file)}")
             .plus("\nfile origin size >> $originFileSize")
             .plus("\nfile size >> ${FileManager.getFileSize(file)}")
 
-        file?.delete()
-    }
-
-    private suspend fun compressBitmap(bitmap: Bitmap, format: Bitmap.CompressFormat, quality: Int): Bitmap {
-        return withContext(Dispatchers.Default) {
-            val stream = ByteArrayOutputStream()
-            bitmap.compress(format, quality, stream)
-            val bytes = stream.toByteArray()
-            BitmapFactory.decodeByteArray(stream.toByteArray(), 0, bytes.size)
+        // convert to png
+        val newFile = withContext(Dispatchers.IO) {
+            File.createTempFile(
+                "copy_".plus(file?.name.toString().removeSuffix(".tmp")),
+                ".png"
+            )
+        }.also {
+            FileManager.saveBitmapToPNGFile(imageBitmap, it)
         }
+
+        // after
+        Glide.with(this@MainActivity).load(newFile).into(binding.ivAfter)
+        binding.tvAfter.text = newFile.name
+            .plus("\nimage type >> ${FileManager.getMimeType(newFile)}")
+            .plus("\nfile origin size >> $originFileSize")
+            .plus("\nfile size >> ${FileManager.getFileSize(newFile)}")
+
     }
 
     private fun pickImage() {

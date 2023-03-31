@@ -1,8 +1,6 @@
 package com.example.permissiontest
 
-import android.annotation.SuppressLint
 import android.content.Context
-import android.database.Cursor
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
@@ -15,11 +13,10 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.InputStream
-import kotlin.math.roundToInt
 
 object FileManager {
 
-    fun getFileFromUri(context: Context, uri: Uri?, suffix: String): File? {
+    fun mkCacheFileFromUri(context: Context, uri: Uri?, suffix: String): File? {
         if (uri == null) {
             return null
         }
@@ -46,52 +43,17 @@ object FileManager {
 
     }
 
-    fun getFileType(file: File?): String? {
-        if (file == null) {
-            return null
-        }
+    suspend fun renameFile(file: File?, newName: String): File? = withContext(Dispatchers.IO){
+        file ?: return@withContext null
 
-        val fileSignature = getFileSignature(file)
-
-        // JPEG 파일인 경우
-        if (fileSignature == "FFD8FF") {
-            return "JPEG"
-        }
-
-        // PNG 파일인 경우
-        if (fileSignature == "89504E47") {
-            return "PNG"
-        }
-
-        // GIF 파일인 경우
-        if (fileSignature == "47494638") {
-            return "GIF"
-        }
-
-        // BMP 파일인 경우
-        if (fileSignature == "424D") {
-            return "BMP"
-        }
-
-        // 파일 형식을 알 수 없는 경우
-        return null
-    }
-
-    private fun getFileSignature(file: File): String? {
-        return try {
-            val inputStream = FileInputStream(file)
-            val buffer = ByteArray(8)
-            inputStream.read(buffer, 0, 8)
-            inputStream.close()
-
-            buffer.joinToString("") { "%02X".format(it) }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
+        File(file.parent?.toString(), newName).also {
+            file.renameTo(it)
+            file.delete()
+            return@withContext it
         }
     }
 
-    fun getImageType(file: File?): String? {
+    fun getMimeType(file: File?): String? {
         file ?: return null
         val fileInputStream = FileInputStream(file)
 
@@ -103,7 +65,11 @@ object FileManager {
         return mimeType.split("/")[1]
     }
 
-    suspend fun saveBitmapToPNGFile(bitmap: Bitmap, file: File) = withContext(Dispatchers.Default) {
+    suspend fun saveBitmapToPNGFile(bitmap: Bitmap, file: File?) = withContext(Dispatchers.IO) {
+        if (file == null) {
+            return@withContext
+        }
+
         try {
             val exif = ExifInterface(file.absolutePath)
             val orientation = exif.getAttributeInt(
@@ -150,32 +116,29 @@ object FileManager {
         return "${Math.round(num * 100) / 100.0}$suffix"
     }
 
-    @SuppressLint("Range")
-    fun getFileNameFromUri(context: Context, uri: Uri?): String? {
-        if (uri == null) {
-            return null
-        }
-
+    fun getFileName(context: Context, uri: Uri): String {
         var result: String? = null
         if (uri.scheme == "content") {
-            val cursor: Cursor? = context.contentResolver.query(uri, null, null, null, null)
-            try {
-                if (cursor != null && cursor.moveToFirst()) {
-                    result = cursor.getString(cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME))
+            val cursor = context.contentResolver.query(uri, null, null, null, null)
+            cursor?.use {
+                if (it.moveToFirst()) {
+                    val index = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    result = if (index == -1) {
+                        throw IllegalArgumentException("Column index not found in query result.")
+                    } else {
+                        it.getString(index)
+                    }
                 }
-            } catch (e: Exception) {
-                return null
-            } finally {
-                cursor?.close()
             }
         }
         if (result == null) {
             result = uri.path
-            val cut = result!!.lastIndexOf('/')
+            val cut = result?.lastIndexOf('/')
             if (cut != -1) {
-                result = result.substring(cut + 1)
+                result = result?.substring(cut?.plus(1) ?: 0)
             }
         }
-        return result
+        return result ?: ""
     }
+
 }
