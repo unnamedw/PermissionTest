@@ -1,25 +1,18 @@
 package com.example.permissiontest
 
 import android.content.Intent
-import android.graphics.BitmapFactory
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import com.example.permissiontest.databinding.ActivityMainBinding
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.File
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
 
-    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -28,7 +21,13 @@ class MainActivity : AppCompatActivity() {
         clearCacheDir()
 
         binding.btnPicker.setOnClickListener {
-            pickImage()
+            RewardSuccessConfirmDialog.newInstance(
+                RewardSuccessConfirmDialog.ViewParam(
+                    title = "미션완료!",
+                    message = "코박캐시 보상",
+                    reward = "100 CC 획득!"
+                )
+            ).show(supportFragmentManager, RewardSuccessConfirmDialog::class.simpleName)
         }
     }
 
@@ -41,9 +40,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleUri(uri: Uri?) = lifecycleScope.launch {
-        val file = FileManager.mkCacheFileFromUri(applicationContext, uri)
+        val file = FileManager.mkTmpFileFromUri(applicationContext, uri)
         val originFileSize = FileManager.getFileSize(file)
-        val imageBitmap = BitmapFactory.decodeFile(file?.absolutePath, BitmapFactory.Options().apply {})
 
         // before
         Glide.with(this@MainActivity).load(file).into(binding.ivBefore)
@@ -53,18 +51,11 @@ class MainActivity : AppCompatActivity() {
             .plus("\nfile size >> ${FileManager.getFileSize(file)}")
 
         // convert to png
-        val newFile = withContext(Dispatchers.IO) {
-            File.createTempFile(
-                "copy_".plus(file?.name.toString().removeSuffix(".${file?.extension}")),
-                ".png"
-            )
-        }.also {
-            FileManager.saveBitmapToPNGFile(imageBitmap, it)
-        }
+        val newFile = FileManager.getFileForUploadImageFormat(applicationContext, uri)
 
         // after
         Glide.with(this@MainActivity).load(newFile).into(binding.ivAfter)
-        binding.tvAfter.text = newFile.name
+        binding.tvAfter.text = newFile?.name
             .plus("\nimage type >> ${FileManager.getMimeType(newFile)}")
             .plus("\nfile origin size >> $originFileSize")
             .plus("\nfile size >> ${FileManager.getFileSize(newFile)}")
@@ -73,9 +64,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun pickImage() {
         // 파일을 가져오기 위해 ACTION_OPEN_DOCUMENT을 사용한다.
-        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT);
-        // 이후 파일중 open가능한 것들로 카테고리를 묶기 위해 CATEGORY_OPENABLE을 사용한다.
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        val intent = Intent(Intent.ACTION_GET_CONTENT);
+//        // 이후 파일중 open가능한 것들로 카테고리를 묶기 위해 CATEGORY_OPENABLE을 사용한다.
+//        intent.addCategory(Intent.CATEGORY_OPENABLE);
 
         // 이제 Storage Access Framework에서 제공하는 UI에 노출될 MIME을 지정한다. 여기서는 이미지를 기준으로 작업하므로 image/라고 표기했지만
         // 오디오를 가지고 오고 싶다면 audio/를 사용하며 오디오 파일형식 중에서도 ogg파일만을 보고 싶다면 audio/ogg라고 명시한다.

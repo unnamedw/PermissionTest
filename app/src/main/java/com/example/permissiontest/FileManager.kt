@@ -13,11 +13,40 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.InputStream
-import java.net.URI
 
 object FileManager {
 
-    fun mkCacheFileFromUri(context: Context, uri: Uri?): File? {
+    /**
+     * 서버에 업로드하는 형식의 파일로 converting 하여 리턴
+     * 이미지 파일인 경우 -> png
+     * gif 인 경우 -> gif
+     * 로 반환됨.
+     * 파일을 사용 후 반드시 지워줘야 함.
+     * **/
+    suspend fun getFileForUploadImageFormat(context: Context, uri: Uri?): File? = withContext(Dispatchers.IO) {
+        if (uri == null) {
+            return@withContext null
+        }
+
+        try {
+            val file = mkTmpFileFromUri(context, uri) ?: return@withContext null
+
+            return@withContext when (file.extension) {
+                "gif" -> {
+                    file
+                }
+                else -> {
+                    convertToPNGFile(file)
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return@withContext null
+        }
+
+    }
+
+    fun mkTmpFileFromUri(context: Context, uri: Uri?): File? {
         if (uri == null) {
             return null
         }
@@ -26,11 +55,14 @@ object FileManager {
         var fileOutputStream: FileOutputStream? = null
 
         try {
-
+            inputStream = context.contentResolver.openInputStream(uri)
             val extension = getFileName(context, uri).substringAfterLast(".", "")
 
-            inputStream = context.contentResolver.openInputStream(uri)
+            // 파일이 생성되는 경로는 context의 CacheDir
             val tmpFile = File.createTempFile(inputStream.hashCode().toString(), ".$extension")
+
+            // Jvm이 종료될 때 파일을 삭제하는 메서드지만, 앱이 갑작스럽게 종료될 때 파일이 삭제되지 않음.
+            // 수동으로 파일을 삭제하는 로직을 추가적으로 넣어줘야 함.
             tmpFile.deleteOnExit()
 
             fileOutputStream = FileOutputStream(tmpFile)
@@ -47,13 +79,18 @@ object FileManager {
 
     }
 
-    suspend fun renameFile(file: File?, newName: String): File? = withContext(Dispatchers.IO){
+    private suspend fun renameFile(file: File?, newName: String): File? = withContext(Dispatchers.IO) {
         file ?: return@withContext null
 
-        File(file.parent?.toString(), newName).also {
-            file.renameTo(it)
-            file.delete()
-            return@withContext it
+        try {
+            File(file.parent?.toString(), newName).also {
+                file.renameTo(it)
+                file.delete()
+                return@withContext it
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return@withContext null
         }
     }
 
@@ -69,9 +106,9 @@ object FileManager {
         return mimeType.split("/")[1]
     }
 
-    suspend fun saveBitmapToPNGFile(bitmap: Bitmap, file: File?) = withContext(Dispatchers.IO) {
+    private suspend fun convertToPNGFile(file: File?): File? = withContext(Dispatchers.IO) {
         if (file == null) {
-            return@withContext
+            return@withContext null
         }
 
         try {
@@ -88,6 +125,8 @@ object FileManager {
                 ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
             }
 
+            val bitmap = BitmapFactory.decodeFile(file.absolutePath, BitmapFactory.Options())
+
             val rotatedBitmap = Bitmap.createBitmap(
                 bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true
             )
@@ -96,8 +135,11 @@ object FileManager {
             rotatedBitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
             out.flush()
             out.close()
+
+            return@withContext renameFile(file, file.nameWithoutExtension + ".png")
         } catch (e: Exception) {
             e.printStackTrace()
+            return@withContext null
         }
     }
 
