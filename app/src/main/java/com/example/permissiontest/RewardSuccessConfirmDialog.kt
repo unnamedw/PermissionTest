@@ -1,5 +1,6 @@
 package com.example.permissiontest
 
+import android.app.Dialog
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -13,6 +14,12 @@ class RewardSuccessConfirmDialog: BottomSheetDialogFragment() {
     private lateinit var viewParam: ViewParam
 
     var onConfirm: ((BottomSheetDialogFragment) -> Unit)? = null
+
+    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
+        return super.onCreateDialog(savedInstanceState).also {
+            isCancelable = false
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,9 +48,12 @@ class RewardSuccessConfirmDialog: BottomSheetDialogFragment() {
         binding.tvTitle.text = viewParam.title
         binding.tvMessage.text = viewParam.message
         binding.tvReward.text = viewParam.reward
-        binding.lavIcon.setPadding(0,0,0,0)
+        binding.lavIcon.apply {
+            maintainOriginalImageBounds = true
+        }
         binding.cvConfirm.setOnClickListener {
             onConfirm?.invoke(this)
+            dismiss()
         }
     }
 

@@ -3,6 +3,8 @@ package com.example.permissiontest
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
@@ -20,6 +22,8 @@ class MainActivity : AppCompatActivity() {
 
         clearCacheDir()
 
+        Log.d("my_test", "density >> ${resources.displayMetrics.density}")
+
         binding.btnPicker.setOnClickListener {
             RewardSuccessConfirmDialog.newInstance(
                 RewardSuccessConfirmDialog.ViewParam(
@@ -27,7 +31,9 @@ class MainActivity : AppCompatActivity() {
                     message = "코박캐시 보상",
                     reward = "100 CC 획득!"
                 )
-            ).show(supportFragmentManager, RewardSuccessConfirmDialog::class.simpleName)
+            ).apply {
+                onConfirm = { Toast.makeText(context, "리워드 획득 완료!", Toast.LENGTH_SHORT).show() }
+            }.show(supportFragmentManager, RewardSuccessConfirmDialog::class.simpleName)
         }
     }
 
